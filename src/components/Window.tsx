@@ -8,13 +8,9 @@ interface Props {
   onMinimize: () => void;
   onMaximize: () => void;
   onFocus: () => void;
-
+onDoubleClickTitle?: () => void;
   zIndex: number;
   maximized?: boolean;
-
-  animating?: boolean;
-  animX?: number;
-  animY?: number;
 }
 
 const Window: React.FC<Props> = ({
@@ -23,115 +19,71 @@ const Window: React.FC<Props> = ({
   onClose,
   onMinimize,
   onMaximize,
+  onDoubleClickTitle,
   onFocus,
   zIndex,
   maximized,
-  animating,
-  animX = 0,
-  animY = 0,
 }) => {
+
   const [pos, setPos] = useState({ x: 120, y: 80 });
+  const [size, setSize] = useState({ width: 800, height: 500 });
 
-  const dragRef = useRef(false);
+  const drag = useRef(false);
+  const resize = useRef(false);
 
-  const last = useRef({ x: 0, y: 0 });
-  const velocity = useRef({ x: 0, y: 0 });
-
-  // =========================
-  // CLAMP FUNCTION (IMPORTANT)
-  // =========================
-
-  const clamp = (val: number, min: number, max: number) =>
-    Math.max(min, Math.min(val, max));
+  const startPos = useRef({ x: 0, y: 0 });
+  const startSize = useRef({ w: 0, h: 0 });
 
   // =========================
-  // DRAG START
+  // DRAG
   // =========================
-
   const startDrag = (e: React.MouseEvent) => {
     if (maximized) return;
 
-    dragRef.current = true;
+    drag.current = true;
+    startPos.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
 
-    last.current = {
-      x: e.clientX,
-      y: e.clientY,
+    window.onmousemove = (ev) => {
+      if (!drag.current) return;
+
+      setPos({
+        x: ev.clientX - startPos.current.x,
+        y: ev.clientY - startPos.current.y,
+      });
     };
 
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', stop);
-  };
-
-  // =========================
-  // DRAG MOVE (WITH CLAMP)
-  // =========================
-
-  const move = (e: MouseEvent) => {
-    if (!dragRef.current) return;
-
-    const dx = e.clientX - last.current.x;
-    const dy = e.clientY - last.current.y;
-
-    setPos((prev) => ({
-      x: clamp(prev.x + dx, 0, window.innerWidth - 300),
-      y: clamp(prev.y + dy, 0, window.innerHeight - 200),
-    }));
-
-    velocity.current = { x: dx, y: dy };
-
-    last.current = {
-      x: e.clientX,
-      y: e.clientY,
+    window.onmouseup = () => {
+      drag.current = false;
+      window.onmousemove = null;
     };
   };
 
   // =========================
-  // DRAG STOP + INERTIA
+  // RESIZE FIX
   // =========================
+  const startResize = (e: React.MouseEvent) => {
+    e.stopPropagation();
 
-  const stop = () => {
-    dragRef.current = false;
+    resize.current = true;
+    startSize.current = { w: size.width, h: size.height };
 
-    window.removeEventListener('mousemove', move);
-    window.removeEventListener('mouseup', stop);
+    const startX = e.clientX;
+    const startY = e.clientY;
 
-    let frame: number;
-    const decay = 0.92;
+    window.onmousemove = (ev) => {
+      if (!resize.current) return;
 
-    const animate = () => {
-      if (
-        Math.abs(velocity.current.x) < 0.1 &&
-        Math.abs(velocity.current.y) < 0.1
-      ) {
-        cancelAnimationFrame(frame);
-        return;
-      }
-
-      setPos((prev) => ({
-        x: clamp(prev.x + velocity.current.x, 0, window.innerWidth - 300),
-        y: clamp(prev.y + velocity.current.y, 0, window.innerHeight - 200),
-      }));
-
-      velocity.current.x *= decay;
-      velocity.current.y *= decay;
-
-      frame = requestAnimationFrame(animate);
+      setSize({
+        width: Math.max(300, startSize.current.w + (ev.clientX - startX)),
+        height: Math.max(200, startSize.current.h + (ev.clientY - startY)),
+      });
     };
 
-    animate();
+    window.onmouseup = () => {
+      resize.current = false;
+      window.onmousemove = null;
+    };
   };
-
-  // =========================
-  // MAXIMIZE
-  // =========================
-
-  const handleDoubleClick = () => {
-    onMaximize();
-  };
-
-  // =========================
-  // RENDER
-  // =========================
 
   return (
     <div
@@ -140,28 +92,22 @@ const Window: React.FC<Props> = ({
         position: 'absolute',
         top: maximized ? 0 : pos.y,
         left: maximized ? 0 : pos.x,
-        width: maximized ? '100vw' : 800,
-        height: maximized ? '100vh' : 500,
+        width: maximized ? '100vw' : size.width,
+        height: maximized ? '100vh' : size.height,
         zIndex,
-
-        transform: animating
-          ? `translate(${animX - pos.x}px, ${animY - pos.y}px) scale(0.1)`
-          : 'translate(0,0) scale(1)',
-
-        opacity: animating ? 0 : 1,
-        transition: 'transform 250ms ease, opacity 250ms ease',
       }}
-      className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl overflow-hidden"
+      className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-2xl"
     >
+
       {/* TITLE BAR */}
       <div
         onMouseDown={startDrag}
-        onDoubleClick={handleDoubleClick}
-        className="flex items-center justify-between px-4 py-2 bg-black/40 cursor-move select-none"
+        onDoubleClick={onDoubleClickTitle}
+        className="flex justify-between px-3 py-2 bg-black/40 cursor-move"
       >
-        <div className="text-white font-semibold">{title}</div>
+        <div className="text-white">{title}</div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button onClick={onMinimize} className="w-3 h-3 bg-yellow-400 rounded-full" />
           <button onClick={onMaximize} className="w-3 h-3 bg-green-400 rounded-full" />
           <button onClick={onClose} className="w-3 h-3 bg-red-500 rounded-full" />
@@ -169,9 +115,15 @@ const Window: React.FC<Props> = ({
       </div>
 
       {/* CONTENT */}
-      <div className="p-4 h-full overflow-auto text-white">
+      <div className="p-3 text-white h-full overflow-auto">
         {children}
       </div>
+
+      {/* RESIZE HANDLE */}
+      <div
+        onMouseDown={startResize}
+        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize"
+      />
     </div>
   );
 };

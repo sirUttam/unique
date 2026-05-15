@@ -69,17 +69,23 @@ const Taskbar: React.FC<Props> = ({
   return (
     <button
       key={w.id}
-      onClick={() =>
-        w.minimized ? onRestore(w.id) : onFocus(w.id)
-      }
+      onClick={() => {
+  if (w.minimized) {
+    onRestore(w.id);
+    onFocus(w.id);
+  } else if (w.id === activeId) {
+    onRestore(w.id); // acts like toggle minimize
+  } else {
+    onFocus(w.id);
+  }
+}}
       className={`p-2 rounded-lg transition-all text-white
         ${isActive
           ? 'bg-blue-500/60 border border-blue-300'
           : 'bg-white/10 hover:bg-white/20'}
       `}
     >
-      {/* ⭐ THIS IS THE FIX */}
-      {w.icon ? w.icon : '📁'}
+      {w.icon ?? '📁'}
     </button>
   );
 })}

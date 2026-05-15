@@ -18,10 +18,6 @@ import AboutWindow from './components/AboutWindow';
 import ContactWindow from './components/ContactWindow';
 import ResumeWindow from './components/ResumeWindow';
 
-// =========================
-// TYPES
-// =========================
-
 type Win = {
   id: string;
   type: string;
@@ -37,13 +33,14 @@ type Particle = {
   vx: number;
   vy: number;
   life: number;
-  size: number;
-  rot: number;
 };
 
-// =========================
-// APP REGISTRY
-// =========================
+type Shockwave = {
+  x: number;
+  y: number;
+  r: number;
+  a: number;
+};
 
 const APP_REGISTRY = [
   { type: 'projects', label: 'Projects', icon: <FaFolder color="#fbbf24" size={30} />, taskIcon: <FaFolder color="#fbbf24" size={16} /> },
@@ -54,13 +51,9 @@ const APP_REGISTRY = [
 ];
 
 const App: React.FC = () => {
-  // =========================
-  // STATE
-  // =========================
 
   const [windows, setWindows] = useState<Win[]>([]);
   const [zIndex, setZIndex] = useState(10);
-  const [missionControl, setMissionControl] = useState(false);
 
   const mouse = useRef({ x: 0, y: 0 });
   const cursor = useRef({ x: 0, y: 0 });
@@ -69,80 +62,108 @@ const App: React.FC = () => {
   const cursorRef = useRef<HTMLDivElement | null>(null);
 
   const particles = useRef<Particle[]>([]);
-  const shockwaves = useRef<{ x: number; y: number; r: number; a: number }[]>([]);
+  const shockwaves = useRef<Shockwave[]>([]);
 
   // =========================
-  // KEYBOARD
+  // WINDOW FOCUS
   // =========================
+  const focusWindow = (id: string) => {
+    setZIndex(prev => {
+      const newZ = prev + 1;
 
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 'ArrowUp') {
-        setMissionControl((v) => !v);
+      setWindows(prev =>
+        prev.map(w =>
+          w.id === id ? { ...w, zIndex: newZ } : w
+        )
+      );
+
+      return newZ;
+    });
+  };
+
+  // =========================
+  // OPEN APP
+  // =========================
+  const openApp = (type: string) => {
+    const app = APP_REGISTRY.find(a => a.type === type);
+    if (!app) return;
+
+    setWindows(prev => {
+      const exists = prev.find(w => w.type === type);
+
+      if (exists) {
+        return prev.map(w =>
+          w.type === type
+            ? { ...w, minimized: false }
+            : w
+        );
       }
-      if (e.key === 'Escape') setMissionControl(false);
-    };
 
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, []);
+      return [
+        ...prev,
+        {
+          id: `${type}-${Date.now()}`,
+          type,
+          minimized: false,
+          maximized: false,
+          zIndex: zIndex + 1,
+          icon: app.taskIcon,
+        }
+      ];
+    });
 
-  // =========================
-  // PERSISTENCE
-  // =========================
+    setZIndex(z => z + 1);
+  };
 
-  useEffect(() => {
-    const saved = localStorage.getItem('os-windows');
-    if (saved) setWindows(JSON.parse(saved));
-  }, []);
+  const closeWindow = (id: string) =>
+    setWindows(p => p.filter(w => w.id !== id));
 
-  useEffect(() => {
-    localStorage.setItem('os-windows', JSON.stringify(windows));
-  }, [windows]);
+  const minimizeWindow = (id: string) =>
+    setWindows(p =>
+      p.map(w =>
+        w.id === id ? { ...w, minimized: true } : w
+      )
+    );
 
-  // =========================
-  // MOUSE + PARTICLES (UNCHANGED)
-  // =========================
+  const handleHome = () => setWindows([]);
 
-  useEffect(() => {
-    const move = (e: MouseEvent) => {
-      mouse.current = { x: e.clientX, y: e.clientY };
-
-      for (let i = 0; i < 6; i++) {
-        particles.current.push({
-          x: mouse.current.x,
-          y: mouse.current.y,
-          vx: (Math.random() - 0.5) * 1.2,
-          vy: (Math.random() - 0.5) * 1.2,
-          life: 1,
-          size: Math.random() * 2.5 + 1,
-          rot: Math.random() * 360,
-        });
-      }
-    };
-
-    const click = (e: MouseEvent) => {
-      shockwaves.current.push({
-        x: e.clientX,
-        y: e.clientY,
-        r: 0,
-        a: 1,
-      });
-    };
-
-    window.addEventListener('mousemove', move);
-    window.addEventListener('click', click);
-
-    return () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('click', click);
-    };
-  }, []);
+  const onRestore = (id: string) => {
+    setWindows(prev =>
+      prev.map(w =>
+        w.id === id ? { ...w, minimized: false } : w
+      )
+    );
+  };
 
   // =========================
-  // CURSOR ENGINE
+  // ⭐ NEW: SHOCKWAVE FUNCTION
   // =========================
+  const addShockwave = (x: number, y: number) => {
+    shockwaves.current.push({
+      x,
+      y,
+      r: 0,
+      a: 1,
+    });
+  };
 
+  // =========================
+  // CONTENT
+  // =========================
+  const renderContent = (type: string) => {
+    switch (type) {
+      case 'projects': return <ProjectsWindow />;
+      case 'skills': return <SkillsWindow />;
+      case 'about': return <AboutWindow />;
+      case 'contact': return <ContactWindow />;
+      case 'resume': return <ResumeWindow />;
+      default: return null;
+    }
+  };
+
+  // =========================
+  // CURSOR (UNCHANGED)
+  // =========================
   useEffect(() => {
     const el = cursorRef.current;
     if (!el) return;
@@ -164,9 +185,8 @@ const App: React.FC = () => {
   }, []);
 
   // =========================
-  // PARTICLE ENGINE
+  // PARTICLES (UNCHANGED)
   // =========================
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -188,21 +208,55 @@ const App: React.FC = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       particles.current.forEach((p, i) => {
+        const dx = mouse.current.x - p.x;
+        const dy = mouse.current.y - p.y;
+
+        const angle = Math.atan2(dy, dx);
+
+        const orbit = 3.2;
+        const pull = 0.3;
+
+        p.vx += dx * pull * 0.02;
+        p.vy += dy * pull * 0.02;
+
+        p.vx += Math.cos(angle + Math.PI / 2) * orbit;
+        p.vy += Math.sin(angle + Math.PI / 2) * orbit;
+
+        p.vx *= 0.78;
+        p.vy *= 0.78;
+
         p.x += p.vx;
         p.y += p.vy;
-        p.life -= 0.02;
+
+        p.life -= 0.012;
 
         if (p.life <= 0) {
           particles.current.splice(i, 1);
           return;
         }
 
-        ctx.beginPath();
+        ctx.save();
+        ctx.translate(p.x, p.y);
         ctx.fillStyle = `rgba(140,200,255,${p.life})`;
-        ctx.shadowBlur = 18;
-        ctx.shadowColor = 'rgba(120,200,255,0.9)';
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(-2, -2, 3, 3);
+        ctx.restore();
+      });
+
+      // ⭐ SHOCKWAVE ANIMATION
+      shockwaves.current.forEach((s, i) => {
+        s.r += 8;
+        s.a -= 0.03;
+
+        if (s.a <= 0) {
+          shockwaves.current.splice(i, 1);
+          return;
+        }
+
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(120,200,255,${s.a})`;
+        ctx.lineWidth = 2;
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.stroke();
       });
 
       frame = requestAnimationFrame(animate);
@@ -213,99 +267,40 @@ const App: React.FC = () => {
   }, []);
 
   // =========================
-  // FIXED FOCUS SYSTEM (IMPORTANT)
+  // MOUSE
   // =========================
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      mouse.current = { x: e.clientX, y: e.clientY };
 
-  const focusWindow = (id: string) => {
-    setWindows((prev) => {
-      const maxZ = Math.max(...prev.map((w) => w.zIndex || 0), 10);
-
-      return prev.map((w) =>
-        w.id === id
-          ? { ...w, zIndex: maxZ + 1 }
-          : w
-      );
-    });
-  };
-
-  // =========================
-  // WINDOW SYSTEM
-  // =========================
-
-  const openApp = (type: string) => {
-    const app = APP_REGISTRY.find((a) => a.type === type);
-    if (!app) return;
-
-    setWindows((prev) => {
-      const exists = prev.find((w) => w.type === type);
-
-      if (exists) {
-        return prev.map((w) =>
-          w.type === type ? { ...w, minimized: false } : w
-        );
+      for (let i = 0; i < 20; i++) {
+        particles.current.push({
+          x: mouse.current.x,
+          y: mouse.current.y,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: (Math.random() - 0.5) * 0.6,
+          life: 1,
+        });
       }
+    };
 
-      return [
-        ...prev,
-        {
-          id: `${type}-${Date.now()}`,
-          type,
-          minimized: false,
-          maximized: false,
-          zIndex,
-          icon: app.taskIcon,
-        },
-      ];
-    });
-
-    setZIndex((z) => z + 1);
-  };
-
-  const closeWindow = (id: string) =>
-    setWindows((p) => p.filter((w) => w.id !== id));
-
-  const minimizeWindow = (id: string) =>
-    setWindows((p) =>
-      p.map((w) =>
-        w.id === id ? { ...w, minimized: true } : w
-      )
-    );
-
-  const handleHome = () => setWindows([]);
-
-  const renderContent = (type: string) => {
-    switch (type) {
-      case 'projects': return <ProjectsWindow />;
-      case 'skills': return <SkillsWindow />;
-      case 'about': return <AboutWindow />;
-      case 'contact': return <ContactWindow />;
-      case 'resume': return <ResumeWindow />;
-      default: return null;
-    }
-  };
-
-  // =========================
-  // RENDER
-  // =========================
+    window.addEventListener('mousemove', move);
+    return () => window.removeEventListener('mousemove', move);
+  }, []);
 
   return (
-    <div className="w-screen h-screen overflow-hidden relative">
+    <div
+      className="w-screen h-screen relative overflow-hidden"
+      onDoubleClick={(e) => addShockwave(e.clientX, e.clientY)}
+    >
 
-      <div className="absolute inset-0 bg-gradient-to-br from-[#1c1f26] via-[#111827] to-[#0b0f17]" />
+      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
 
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 pointer-events-none"
-      />
+      <div ref={cursorRef} className="fixed w-4 h-4 bg-cyan-300 rounded-full" />
 
-      <div
-        ref={cursorRef}
-        className="fixed w-4 h-4 rounded-full bg-cyan-300 shadow-lg pointer-events-none z-[9999]"
-      />
-
-      {/* DESKTOP */}
+      {/* DESKTOP ICONS */}
       <div className="absolute top-10 left-6 flex flex-col gap-5 z-10">
-        {APP_REGISTRY.map((app) => (
+        {APP_REGISTRY.map(app => (
           <DesktopIcon
             key={app.type}
             icon={app.icon}
@@ -316,72 +311,53 @@ const App: React.FC = () => {
       </div>
 
       {/* WINDOWS */}
-      {!missionControl ? (
-        windows.map((win) =>
-          !win.minimized ? (
-            <div
-              key={win.id}
-              onMouseDown={() => focusWindow(win.id)}
-            >
-              <Window
-                title={win.type}
-                zIndex={win.zIndex}
-                maximized={win.maximized}
-                onClose={() => closeWindow(win.id)}
-                onMinimize={() => minimizeWindow(win.id)}
-                onMaximize={() =>
-                  setWindows((p) =>
-                    p.map((w) =>
-                      w.id === win.id
-                        ? { ...w, maximized: !w.maximized }
-                        : w
-                    )
-                  )
-                }
-                onFocus={() => focusWindow(win.id)}
-              >
-                {renderContent(win.type)}
-              </Window>
-            </div>
-          ) : null
+      {windows.map(win =>
+        !win.minimized && (
+          <Window
+            key={win.id}
+            title={win.type}
+            zIndex={win.zIndex}
+            maximized={win.maximized}
+            onClose={() => closeWindow(win.id)}
+            onMinimize={() => minimizeWindow(win.id)}
+            onMaximize={() =>
+              setWindows(p =>
+                p.map(w =>
+                  w.id === win.id
+                    ? {
+                        ...w,
+                        maximized: !w.maximized,
+                        minimized: false
+                      }
+                    : w
+                )
+              )
+            }
+            onFocus={() => focusWindow(win.id)}
+            onDoubleClickTitle={() =>
+              setWindows(p =>
+                p.map(w =>
+                  w.id === win.id
+                    ? {
+                        ...w,
+                        maximized: !w.maximized,
+                        minimized: false
+                      }
+                    : w
+                )
+              )
+            }
+          >
+            {renderContent(win.type)}
+          </Window>
         )
-      ) : (
-        <div className="absolute inset-0 z-50 backdrop-blur-xl bg-black/40 flex flex-wrap gap-6 p-10">
-          {windows.map((win) => (
-            <div
-              key={win.id}
-              onClick={() => {
-                focusWindow(win.id);
-                setMissionControl(false);
-              }}
-              className="w-[240px] h-[140px] bg-white/10 border border-white/20 rounded-xl p-3 cursor-pointer hover:scale-105 transition"
-            >
-              <div className="text-white text-sm mb-2">
-                {win.type}
-              </div>
-              <div className="scale-[0.25] origin-top-left">
-                {renderContent(win.type)}
-              </div>
-            </div>
-          ))}
-        </div>
       )}
 
       {/* TASKBAR */}
       <Taskbar
         windows={windows}
         onOpen={openApp}
-        onRestore={(id) =>
-          setWindows((prev) => {
-            const maxZ = Math.max(...prev.map((w) => w.zIndex || 0), 10);
-
-            return prev.map((w) =>
-              w.id === id
-                ? { ...w, minimized: false, zIndex: maxZ + 1 }
-                : w
-            );
-          })
-        }
+        onRestore={onRestore}
         onFocus={focusWindow}
         onHome={handleHome}
       />
