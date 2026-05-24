@@ -85,15 +85,36 @@ const Window: React.FC<Props> = ({
     };
   };
 
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+
+  const safeLeft = maximized || viewportWidth === 0
+    ? 0
+    : Math.min(
+        Math.max(pos.x, 0),
+        viewportWidth - Math.min(size.width, viewportWidth)
+      );
+
+  const safeTop = maximized || viewportHeight === 0
+    ? 0
+    : Math.min(
+        Math.max(pos.y, 0),
+        viewportHeight - Math.min(size.height, viewportHeight)
+      );
+
   return (
     <div
       onMouseDown={onFocus}
       style={{
         position: 'absolute',
-        top: maximized ? 0 : pos.y,
-        left: maximized ? 0 : pos.x,
+        top: maximized ? 0 : safeTop,
+        left: maximized ? 0 : safeLeft,
         width: maximized ? '100vw' : size.width,
         height: maximized ? '100vh' : size.height,
+        maxWidth: '100vw',
+        maxHeight: '100vh',
+        minWidth: 300,
+        minHeight: 200,
         zIndex,
       }}
       className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden shadow-2xl"

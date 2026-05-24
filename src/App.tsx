@@ -299,7 +299,7 @@ const App: React.FC = () => {
       <div ref={cursorRef} className="fixed w-4 h-4 bg-cyan-300 rounded-full" />
 
       {/* DESKTOP ICONS */}
-      <div className="absolute top-10 left-6 flex flex-col gap-5 z-10">
+      <div className="absolute top-6 left-4 sm:top-10 sm:left-6 flex flex-col gap-5 z-10">
         {APP_REGISTRY.map(app => (
           <DesktopIcon
             key={app.type}

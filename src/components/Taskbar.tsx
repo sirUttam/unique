@@ -49,9 +49,9 @@ const Taskbar: React.FC<Props> = ({
       : null;
 
   return (
-    <div className="fixed bottom-0 left-0 w-full h-16 bg-black/40 backdrop-blur-xl flex items-center justify-center z-[9999]">
+    <div className="fixed bottom-0 left-0 w-full bg-black/40 backdrop-blur-xl flex gap-10 justify-center z-[9999] px-2 py-3">
 
-      <div className="flex items-end gap-4 px-5 py-2 rounded-2xl bg-white/5 border border-white/10">
+      <div className="flex flex-nowrap items-center justify-between gap-3 w-full max-w-6xl px-4 py-2 rounded-2xl bg-white/5 border border-white/10 overflow-x-auto">
 
         {/* HOME */}
         <button
@@ -62,7 +62,7 @@ const Taskbar: React.FC<Props> = ({
         </button>
 
         {/* APP WINDOWS */}
-        <div className="flex items-end gap-2">
+        <div className="flex flex-wrap items-center gap-2 max-w-[55%]">
           {windows.map((w) => {
   const isActive = w.id === activeId;
 
@@ -92,7 +92,7 @@ const Taskbar: React.FC<Props> = ({
         </div>
 
         {/* ⭐ RESTORED SOCIAL ICONS (WERE LOST BEFORE) */}
-        <div className="flex items-center gap-3 ml-3">
+        <div className="flex flex-wrap items-center gap-3 ml-0 sm:ml-3">
 
           <a
             href="https://github.com"
@@ -126,7 +126,7 @@ const Taskbar: React.FC<Props> = ({
       </div>
 
       {/* CLOCK */}
-      <div className="absolute right-4 text-white text-right leading-tight">
+      <div className="hidden sm:block w-auto text-right text-white text-sm leading-tight">
         <div className="text-sm">{formatTime()}</div>
         <div className="text-xs opacity-70">{formatDate()}</div>
       </div>
